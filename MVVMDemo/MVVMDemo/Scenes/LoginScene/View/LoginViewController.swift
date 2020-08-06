@@ -1,5 +1,7 @@
 
 import UIKit
+import RxSwift
+import RxCocoa
 
 class LoginViewController: UIViewController {
     @IBOutlet weak var usernameField: UITextField!
@@ -9,24 +11,50 @@ class LoginViewController: UIViewController {
     @IBOutlet weak var topVaultView: UIView!
     @IBOutlet weak var bottomVaultView: UIView!
     @IBOutlet weak var lockView: UIImageView!
-    
+
+    private let disposeBag = DisposeBag()
     private var viewModel = UserViewModel()
     
     var loginSuccess: (() -> Void)?
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        viewModel.accessCode.bind { [unowned self] in
-          self.codeLabel.text = $0
-        }
         
-        viewModel.username.bind {
-            debugPrint("username---" + $0)
-        }
+        bindUI()
+        updateUI()
         
-        viewModel.password.bind {
-            debugPrint("username---" + $0)
-        }
+    }
+    
+    func bindUI() {
+        
+        usernameField.rx.text.bind(to: viewModel.username).disposed(by: disposeBag)
+        passwordField.rx.text.bind(to: viewModel.password).disposed(by: disposeBag)
+        
+    }
+    
+    func updateUI() {
+        
+        viewModel.accessCode
+            .observeOn(MainScheduler.instance)
+            .subscribe(onNext: { [unowned self] in
+                self.codeLabel.text = $0
+            })
+            .disposed(by: disposeBag)
+        
+        viewModel.username
+            .filter({($0?.count ?? 0) > 5})
+            .subscribe(onNext: {
+                debugPrint("username--- \($0 ?? "")")
+            })
+            .disposed(by: disposeBag)
+        
+        viewModel.password
+            .filter({($0?.count ?? 0) > 3})
+            .subscribe(onNext: {
+                debugPrint("password--- " + ($0 ?? ""))
+            })
+            .disposed(by: disposeBag)
+        
     }
     deinit {
         debugPrint("deinit :- " + String(describing: LoginViewController.self))
@@ -43,7 +71,7 @@ extension LoginViewController {
         dismissKeyboard()
         
         switch viewModel.validate() {
-        case .Valid:
+        case .valid:
             viewModel.login() { errorMessage in
                 if let errorMessage = errorMessage {
                     self.displayErrorMessage(errorMessage)
@@ -51,7 +79,7 @@ extension LoginViewController {
                     self.loginSuccess?()
                 }
             }
-        case .Invalid(let error):
+        case .invalid(let error):
             displayErrorMessage(error)
         }
     }
@@ -59,12 +87,7 @@ extension LoginViewController {
 
 // MARK: UITextFieldDelegate
 extension LoginViewController: UITextFieldDelegate {
-    func textFieldDidBeginEditing(_ textField: UITextField) {
-        if textField == usernameField {
-            textField.text = viewModel.username.value
-        }
-    }
-    
+
     func textFieldDidEndEditing(_ textField: UITextField) {
         if textField == usernameField {
             textField.text = viewModel.protectedUsername
@@ -81,17 +104,6 @@ extension LoginViewController: UITextFieldDelegate {
         return true
     }
     
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        let newString = (textField.text! as NSString).replacingCharacters(in: range, with: string)
-        
-        if textField == usernameField {
-            viewModel.updateUsername(newString)
-        } else if textField == passwordField {
-            viewModel.updatePassword(newString)
-        }
-        
-        return true
-    }
 }
 
 // MARK: Private Methods

@@ -1,11 +1,13 @@
 
 import XCTest
 @testable import MVVMDemo
+@testable import RxSwift
 
 class LoginTests: XCTestCase {
     
     var validUserViewModel: UserViewModel!
     var invalidUserViewModel: UserViewModel!
+    fileprivate let disposeBag = DisposeBag()
     
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -33,11 +35,17 @@ class LoginTests: XCTestCase {
         }
     }
     func testUsername() {
-        XCTAssertEqual(validUserViewModel.username.value, "dattpatel")
+        validUserViewModel.username.subscribe(onNext: {
+            XCTAssertEqual($0, "dattpatel")
+        }).disposed(by: disposeBag)
+        validUserViewModel.username.onNext("dattpatel")
     }
     
     func testPassword() {
-        XCTAssertEqual(validUserViewModel.password.value, "swift")
+        validUserViewModel.password.subscribe(onNext: {
+            XCTAssertEqual($0, "swift")
+        }).disposed(by: disposeBag)
+        validUserViewModel.username.onNext("swift")
     }
     
     func testProtectedUsernameLong() {
@@ -49,20 +57,11 @@ class LoginTests: XCTestCase {
         XCTAssertEqual(validUserViewModel.protectedUsername, "dp")
     }
     
-    func testUpdateUsername() {
-        validUserViewModel.updateUsername("aaamsha")
-        XCTAssertEqual(validUserViewModel.username.value, "aaamsha")
-    }
-    
-    func testUpdatePassword() {
-        validUserViewModel.updatePassword("vicki")
-        XCTAssertEqual(validUserViewModel.password.value, "vicki")
-    }
     
     func testValidateNoUserOrPassword() {
         let validation = invalidUserViewModel.validate()
         
-        if case .Invalid(let message) = validation {
+        if case .invalid(let message) = validation {
             XCTAssertEqual(message, "Username and password are required.")
         } else {
             XCTAssert(false)
@@ -73,7 +72,7 @@ class LoginTests: XCTestCase {
         invalidUserViewModel = UserViewModel(user: User(username: "dattpatel", password: ""))
         let validation = invalidUserViewModel.validate()
         
-        if case .Invalid(let message) = validation {
+        if case .invalid(let message) = validation {
             XCTAssertEqual(message, "Username and password are required.")
         } else {
             XCTAssert(false)
@@ -84,7 +83,7 @@ class LoginTests: XCTestCase {
         invalidUserViewModel = UserViewModel(user: User(username: "dp", password: "swift"))
         let validation = invalidUserViewModel.validate()
         
-        if case .Invalid(let message) = validation {
+        if case .invalid(let message) = validation {
             XCTAssertEqual(message, "Username needs to be at least 4 characters long.")
         } else {
             XCTAssert(false)
@@ -95,7 +94,7 @@ class LoginTests: XCTestCase {
         invalidUserViewModel = UserViewModel(user: User(username: "dattpatel", password: "sw"))
         let validation = invalidUserViewModel.validate()
         
-        if case .Invalid(let message) = validation {
+        if case .invalid(let message) = validation {
             XCTAssertEqual(message, "Password needs to be at least 5 characters long.")
         } else {
             XCTAssert(false)
@@ -105,7 +104,7 @@ class LoginTests: XCTestCase {
     func testValidateValidUser() {
         let validation = validUserViewModel.validate()
         
-        if case .Valid = validation {
+        if case .valid = validation {
             XCTAssert(true)
         } else {
             XCTAssert(false)

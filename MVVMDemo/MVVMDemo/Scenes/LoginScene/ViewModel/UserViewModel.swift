@@ -1,30 +1,27 @@
 
 
 import Foundation
+import RxSwift
 
 enum UserValidationState {
-    case Valid
-    case Invalid(String)
+    case valid
+    case invalid(String)
 }
 
 class UserViewModel {
     private let minUsernameLength = 4
     private let minPasswordLength = 5
-    private let codeRefreshTime = 5.0
-    private var user = User() {
-        didSet {
-            username.value = user.username
-            password.value = user.password
-        }
-    }
+    private let codeRefreshTime = 3.0
+    private var user = User()
     
-    var username: Box<String> = Box("")
+    private let disposeBag = DisposeBag()
     
-    var password: Box<String> = Box("")
+    var username = PublishSubject<String?>()
+    var password = PublishSubject<String?>()
     
     var protectedUsername: String {
-        let characters = username.value
-        
+        let characters = user.username
+
         if characters.count >= minUsernameLength {
             var displayName = [Character]()
             for (index, character) in characters.enumerated() {
@@ -36,44 +33,38 @@ class UserViewModel {
             }
             return String(displayName)
         }
-        
+
         return characters
     }
     
-    var accessCode: Box<String?> = Box(nil)
+    var accessCode = BehaviorSubject<String?>(value: LoginService.generateAccessCode())
     
     init(user: User = User()) {
         self.user = user
-        username.value = user.username
-        password.value = user.password
+        username.onNext(user.username)
+        password.onNext(user.password)
+        setModelDataOnChange()
         startAccessCodeTimer()
     }
 }
 
 // MARK: Public Methods
 extension UserViewModel {
-    func updateUsername(_ username: String) {
-        user.username = username
-    }
-    
-    func updatePassword(_ password: String) {
-        user.password = password
-    }
     
     func validate() -> UserValidationState {
         if user.username.isEmpty || user.password.isEmpty {
-            return .Invalid("Username and password are required.")
+            return .invalid("Username and password are required.")
         }
         
         if user.username.count < minUsernameLength {
-            return .Invalid("Username needs to be at least \(minUsernameLength) characters long.")
+            return .invalid("Username needs to be at least \(minUsernameLength) characters long.")
         }
         
         if user.password.count < minPasswordLength {
-            return .Invalid("Password needs to be at least \(minPasswordLength) characters long.")
+            return .invalid("Password needs to be at least \(minPasswordLength) characters long.")
         }
         
-        return .Valid
+        return .valid
     }
     
     func login(completion: (_ errorString: String?) -> Void) {
@@ -89,8 +80,25 @@ extension UserViewModel {
 
 // MARK: - Private Methods
 private extension UserViewModel {
+    
+    func setModelDataOnChange()  {
+        
+        username
+            .subscribe(onNext: { [unowned self] in
+                self.user.username = $0 ?? ""
+            })
+            .disposed(by: disposeBag)
+        
+        password
+            .subscribe(onNext: { [unowned self] in
+                self.user.password = $0 ?? ""
+            })
+            .disposed(by: disposeBag)
+        
+    }
+    
     func startAccessCodeTimer() {
-        accessCode.value = LoginService.generateAccessCode()
+        accessCode.onNext(LoginService.generateAccessCode())
         
         dispatchAfter(codeRefreshTime) { [weak self] in 
             self?.startAccessCodeTimer()

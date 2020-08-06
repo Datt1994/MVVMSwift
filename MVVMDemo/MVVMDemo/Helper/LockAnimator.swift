@@ -2,7 +2,7 @@
 import UIKit
 
 class LockAnimator: NSObject, UIViewControllerAnimatedTransitioning {
-    let duration = 1.0
+    let duration = 0.9
     var isPresenting = true
     
     func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
@@ -58,18 +58,3 @@ extension LockAnimator: UIViewControllerTransitioningDelegate {
     }
 }
 
-extension UIImageView {
-    func setImageFromPath(path: String) {
-        image = nil
-        DispatchQueue.global(qos: .background).async {
-            var image: UIImage?
-            if let imageData = NSData(contentsOfFile: path) {
-                image = UIImage(data: imageData as Data)
-            }
-            
-            DispatchQueue.main.async {
-                self.image = image
-            }
-        }
-    }
-}
